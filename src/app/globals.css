@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: #3b82f6; /* Premium Blue */
+  --color-primary-hover: #2563eb;
+  --color-secondary: #8b5cf6; /* Vibrant Purple */
+  --color-accent: #f43f5e; /* Action Rose */
+  --color-surface: rgba(255, 255, 255, 0.05);
+  --color-surface-hover: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(255, 255, 255, 0.1);
+  --font-sans: var(--font-inter);
+}
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  /* Add an elegant subtle premium gradient background */
+  background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
+  background-attachment: fixed;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(15, 15, 15, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.glass-button {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 6px 0 rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.glass-button:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Stunning gradient text */
+.text-gradient {
+  background: linear-gradient(to right, #3b82f6, #8b5cf6, #f43f5e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
