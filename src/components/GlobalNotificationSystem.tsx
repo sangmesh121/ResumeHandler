@@ -5,12 +5,8 @@ import { useHiringAlerts } from '@/hooks/useHiringAlerts';
 import { Zap, X } from 'lucide-react';
 import { useState } from 'react';
 
-// For the MVP, we assume a static user ID or fetch from context.
-// In production, this comes from Supabase Auth context.
-const MOCK_USER_ID = "00000000-0000-0000-0000-000000000000";
-
 export function GlobalNotificationSystem() {
-  const alerts = useHiringAlerts(MOCK_USER_ID);
+  const alerts = useHiringAlerts();
   const [visibleAlerts, setVisibleAlerts] = useState<typeof alerts>([]);
 
   // Sync new alerts to visibility

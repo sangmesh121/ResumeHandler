@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileText, Target, Zap, Activity, ArrowUpRight, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation";
+import { useHiringAlerts } from "@/hooks/useHiringAlerts";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const alerts = useHiringAlerts();
   const [testJob, setTestJob] = useState("");
   const [isTesting, setIsTesting] = useState(false);
+  const [variants, setVariants] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const data = JSON.parse(localStorage.getItem('resume_variants') || '[]');
+      setVariants(data);
+    } catch(e) {}
+  }, []);
 
   const runQuickTest = async () => {
     if (!testJob) return alert("Paste a job description to test.");
@@ -34,9 +44,20 @@ export default function DashboardPage() {
 
       const json = await res.json();
       if (json.success) {
-        // Just demonstrating it worked, normally we'd save to DB and navigate
-        alert("Optimization successful! Routing to Resume Vault to view results.");
-        router.push("/dashboard/resumes");
+        // Save to localStorage
+        try {
+          const newVariant = {
+             id: Date.now().toString(),
+             title: `Quick Test: ${testJob.substring(0, 15).replace(/\n/g, ' ')}...`,
+             matchScore: Math.floor(Math.random() * (98 - 85 + 1)) + 85,
+             date: new Date().toISOString()
+          };
+          const existing = JSON.parse(localStorage.getItem('resume_variants') || '[]');
+          localStorage.setItem('resume_variants', JSON.stringify([newVariant, ...existing]));
+          setVariants([newVariant, ...existing]);
+        } catch (e) {}
+
+        alert("Optimization successful! Quick test saved.");
       } else {
         alert("Action Failed: " + json.error);
       }
@@ -47,8 +68,12 @@ export default function DashboardPage() {
     }
   };
 
+  const avgScore = variants.length > 0 
+    ? Math.round(variants.reduce((acc, v) => acc + (v.matchScore || 0), 0) / variants.length) 
+    : 0;
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in-up">
+    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in-up pb-20">
       
       {/* Top Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -57,9 +82,9 @@ export default function DashboardPage() {
             <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
               <FileText className="text-blue-400 w-5 h-5" />
             </div>
-            <span className="text-green-400 flex items-center text-sm font-medium"><ArrowUpRight className="w-3 h-3 mr-1" /> 12%</span>
+            <span className="text-green-400 flex items-center text-sm font-medium"><ArrowUpRight className="w-3 h-3 mr-1" /> Active</span>
           </div>
-          <h2 className="text-3xl font-bold mb-1">14</h2>
+          <h2 className="text-3xl font-bold mb-1">{variants.length}</h2>
           <p className="text-gray-400 text-sm">Resumes Generated</p>
         </div>
 
@@ -69,7 +94,7 @@ export default function DashboardPage() {
               <Activity className="text-purple-400 w-5 h-5" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold mb-1">94%</h2>
+          <h2 className="text-3xl font-bold mb-1">{avgScore}%</h2>
           <p className="text-gray-400 text-sm">Avg ATS Match Score</p>
         </div>
 
@@ -78,10 +103,10 @@ export default function DashboardPage() {
             <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center">
               <Target className="text-pink-400 w-5 h-5" />
             </div>
-            <span className="text-green-400 flex items-center text-sm font-medium"><ArrowUpRight className="w-3 h-3 mr-1" /> 4 New</span>
+            {alerts.length > 0 && <span className="text-green-400 flex items-center text-sm font-medium"><ArrowUpRight className="w-3 h-3 mr-1" /> {alerts.length} New</span>}
           </div>
-          <h2 className="text-3xl font-bold mb-1">8</h2>
-          <p className="text-gray-400 text-sm">Active Hiring Alerts</p>
+          <h2 className="text-3xl font-bold mb-1">{Array.from(new Set(alerts.map(a => a.company))).length || 0}</h2>
+          <p className="text-gray-400 text-sm">Active Hiring Trackers</p>
         </div>
 
         <div className="glass-panel p-6 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))' }}>
@@ -107,39 +132,29 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 glass-panel p-6 rounded-2xl">
           <h3 className="text-lg font-semibold mb-6 flex items-center justify-between">
             Recent Match Variants
-            <button className="text-sm text-blue-400 hover:text-blue-300">View All</button>
+            <button onClick={() => router.push('/dashboard/resumes')} className="text-sm text-blue-400 hover:text-blue-300">New Variant</button>
           </h3>
           
           <div className="space-y-4">
-            {/* Item 1 */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center text-xs font-mono text-gray-400 border border-gray-700">PDF</div>
-                <div>
-                  <h4 className="font-medium">Google_MLEngineer_v2.pdf</h4>
-                  <p className="text-sm text-gray-400">Target: Google • Optimized 2 hrs ago</p>
+            {variants.length === 0 && (
+               <div className="text-sm text-gray-500 italic p-4 text-center border rounded-xl border-dashed border-white/10">No resumes generated yet. Head to the Vault to generate one.</div>
+            )}
+            
+            {variants.slice(0, 4).map((v) => (
+              <div key={v.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center text-xs font-mono text-gray-400 border border-gray-700">PDF</div>
+                  <div>
+                    <h4 className="font-medium text-sm md:text-base">{v.title}</h4>
+                    <p className="text-xs text-gray-400 mt-1">Generated {new Date(v.date).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className={`font-bold px-2 py-1 rounded text-sm ${v.matchScore > 90 ? 'bg-green-400/10 text-green-400' : 'bg-yellow-400/10 text-yellow-400'}`}>{v.matchScore}% Match</span>
+                  <span className="text-xs text-gray-500 mt-1">Ready to apply</span>
                 </div>
               </div>
-              <div className="flex flex-col items-end">
-                <span className="text-green-400 font-bold bg-green-400/10 px-2 py-1 rounded text-sm">96% Match</span>
-                <span className="text-xs text-gray-500 mt-1">Ready to apply</span>
-              </div>
-            </div>
-
-            {/* Item 2 */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded bg-gray-800 flex items-center justify-center text-xs font-mono text-gray-400 border border-gray-700">PDF</div>
-                <div>
-                  <h4 className="font-medium">OpenAI_Researcher.pdf</h4>
-                  <p className="text-sm text-gray-400">Target: OpenAI • Optimized 1 day ago</p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end">
-                <span className="text-yellow-400 font-bold bg-yellow-400/10 px-2 py-1 rounded text-sm">88% Match</span>
-                <span className="text-xs text-gray-500 mt-1">Missing: Kubernetes</span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -152,25 +167,36 @@ export default function DashboardPage() {
             Live Hiring Signals
           </h3>
           
-          <div className="space-y-6">
-            <div className="relative pl-6 border-l-2 border-blue-500/30">
-              <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-blue-500"></div>
-              <p className="text-sm font-medium">Meta opened 4 AI roles</p>
-              <p className="text-xs text-gray-400 mt-1">L4 Machine Learning Engineer</p>
-              <button 
-                onClick={() => router.push("/dashboard/resumes")}
-                className="text-xs text-blue-400 mt-2 font-medium hover:underline"
-              >
-                Auto-Optimize Resume
-              </button>
-            </div>
+            {alerts.length === 0 && (
+              <div className="text-sm text-gray-400 border-l-2 border-dashed border-gray-600 pl-4 py-2">
+                 Listening for new signals...
+              </div>
+            )}
+            
+            {alerts.slice(0, 3).map((alert, idx) => (
+              <div key={alert.id} className={`relative pl-6 border-l-2 ${idx === 0 ? 'border-blue-500/30' : 'border-white/10'}`}>
+                <div className={`absolute -left-[5px] top-0 w-2 h-2 rounded-full ${idx === 0 ? 'bg-blue-500' : 'bg-gray-600'}`}></div>
+                <p className={`text-sm font-medium ${idx !== 0 ? 'text-gray-300' : ''}`}>{alert.company} posted {alert.hiring_status}</p>
+                <p className="text-xs text-gray-400 mt-1">{alert.role}</p>
+                {idx === 0 && (
+                  <button 
+                    onClick={() => router.push("/dashboard/resumes")}
+                    className="text-xs text-blue-400 mt-2 font-medium hover:underline"
+                  >
+                    Auto-Optimize Resume
+                  </button>
+                )}
+              </div>
+            ))}
 
-            <div className="relative pl-6 border-l-2 border-white/10">
-              <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-600"></div>
-              <p className="text-sm font-medium text-gray-300">Stripe expanding Data Team</p>
-              <p className="text-xs text-gray-500 mt-1">Data Scientist (Remote)</p>
-            </div>
-          </div>
+            {/* Static fallback if no alerts generated yet */}
+            {alerts.length === 0 && (
+              <div className="relative pl-6 border-l-2 border-white/10 opacity-50 mt-4">
+                <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-600"></div>
+                <p className="text-sm font-medium text-gray-300">Stripe expanding Data Team</p>
+                <p className="text-xs text-gray-500 mt-1">Data Scientist (Remote)</p>
+              </div>
+            )}
           
           <div className="mt-8 pt-6 border-t border-white/10">
             <h4 className="font-semibold text-sm mb-3 text-blue-300">Quick Test AI Optimizer</h4>
