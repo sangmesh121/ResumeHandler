@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { parseResumeWithGemini } from '@/lib/ai';
-// Use pdf-parse to extract text from pdf buffer
-const pdfParse = require('pdf-parse');
+// @ts-ignore
+import pdfParse from 'pdf-parse';
 
 export async function POST(req: Request) {
   try {
@@ -12,12 +12,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Convert file to buffer for pdf-parse
+    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // 1. Extract raw text from PDF
-    const pdfData = await pdfParse(buffer);
+    // Handle Next.js Webpack ESM/CJS interop issues dynamically
+    const parsePDF = typeof pdfParse === 'function' ? pdfParse : (pdfParse as any).default || pdfParse;
+    
+    if (typeof parsePDF !== 'function') {
+       throw new Error(`pdfParse failed to load callable function. Found type: ${typeof parsePDF}`);
+    }
+
+    const pdfData = await parsePDF(buffer);
     const rawText = pdfData.text;
 
     if (!rawText || rawText.trim().length === 0) {

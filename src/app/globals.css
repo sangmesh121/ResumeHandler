@@ -63,3 +63,30 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* PDF Print Styles for ATS Resumes */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-resume, #printable-resume * {
+    visibility: visible;
+  }
+  #printable-resume {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 30px;
+    background: white !important;
+    color: black !important;
+  }
+  #printable-resume h3, #printable-resume h4 {
+    color: #111 !important;
+    border-color: #ccc !important;
+  }
+  #printable-resume p, #printable-resume li {
+    color: #333 !important;
+  }
+}

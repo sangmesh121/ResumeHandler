@@ -1,15 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { UploadCloud, FileText, CheckCircle2, Clock, Zap, Loader2, Target } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, Clock, Zap, Loader2, Target, Search, MousePointerClick } from "lucide-react";
 
 export default function ResumeManagementPage() {
   const [isUploading, setIsUploading] = useState(false);
+  const [parsedResume, setParsedResume] = useState<any>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedResult, setOptimizedResult] = useState<any>(null);
 
-  // Simulate file upload and parse
+  // Domain search states
+  const [domain, setDomain] = useState("");
+  const [domainJobs, setDomainJobs] = useState<any[]>([]);
+  const [isSearchingJobs, setIsSearchingJobs] = useState(false);
+
+  // Parse the uploaded PDF
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
@@ -19,15 +25,58 @@ export default function ResumeManagementPage() {
     formData.append("file", file);
 
     try {
-      // In a real flow, this sends to /api/resume/parse
-      // We will mock the parsed JSON for instant UI feedback here to demonstrate the flow
-      await new Promise(r => setTimeout(r, 2000));
-      alert("Resume parsed successfully! You can now generate variants.");
+      const res = await fetch('/api/resume/parse', {
+        method: 'POST',
+        body: formData
+      });
+      const json = await res.json();
+      if (json.success) {
+        setParsedResume(json.data);
+        alert("Resume parsed successfully! You can now generate variants.");
+      } else {
+        alert("Parsing failed: " + json.error);
+      }
     } catch (error) {
       alert("Upload failed.");
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const searchDomainJobs = async () => {
+    if (!domain) return alert("Please enter a target domain/industry.");
+    setIsSearchingJobs(true);
+    setDomainJobs([]);
+
+    try {
+      const targetResume = parsedResume || {
+         name: "John Doe",
+         summary: "Experienced Professional",
+         experience: []
+      };
+
+      const res = await fetch('/api/jobs/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, parsedResume: targetResume })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setDomainJobs(json.data);
+      } else {
+        alert("Search failed: " + json.error);
+      }
+    } catch (e) {
+      alert("Network error processing domain search.");
+    } finally {
+      setIsSearchingJobs(false);
+    }
+  };
+
+  const handleSelectJob = (job: any) => {
+     const text = `Company: ${job.company}\nRole: ${job.role}\n\nDescription:\n${job.description}`;
+     setJobDescription(text);
+     // Scroll to the textarea to prompt them to hit optimize
   };
 
   const runOptimizer = async () => {
@@ -37,8 +86,8 @@ export default function ResumeManagementPage() {
     setOptimizedResult(null);
 
     try {
-      // Mocking the parsed resume that would normally come from the user's DB profile
-      const dummyParsedResume = {
+      // Use the actual uploaded parsed resume, fallback to dummy if none uploaded
+      const targetResume = parsedResume || {
          name: "John Doe",
          summary: "Software Engineer with 5 years of experience building web applications.",
          experience: [
@@ -50,7 +99,7 @@ export default function ResumeManagementPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          parsedResume: dummyParsedResume,
+          parsedResume: targetResume,
           jobDescription: jobDescription
         })
       });
@@ -58,6 +107,19 @@ export default function ResumeManagementPage() {
       const json = await res.json();
       if (json.success) {
         setOptimizedResult(json.data);
+        
+        // Save to localStorage for Dashboard stats
+        try {
+          const newVariant = {
+             id: Date.now().toString(),
+             title: `Target: ${jobDescription.substring(0, 20).replace(/\n/g, ' ')}...`,
+             matchScore: Math.floor(Math.random() * (98 - 85 + 1)) + 85, // Mock ATS score
+             date: new Date().toISOString()
+          };
+          const existing = JSON.parse(localStorage.getItem('resume_variants') || '[]');
+          localStorage.setItem('resume_variants', JSON.stringify([newVariant, ...existing]));
+        } catch (e) {}
+
       } else {
         alert("Optimization failed: " + json.error);
       }
@@ -87,6 +149,51 @@ export default function ResumeManagementPage() {
         
         {/* Input Scope */}
         <div className="space-y-6">
+          
+          {/* AI Domain Matcher */}
+          <div className="glass-panel p-6 rounded-2xl border-indigo-500/20 shadow-[0_0_30px_rgba(79,70,229,0.05)]">
+             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Search className="w-5 h-5 text-indigo-400" /> AI Domain Matcher
+             </h2>
+             <p className="text-sm text-gray-400 mb-4">Tell us your target industry (e.g. "Fintech Engineering", "AI Startups"). Gemini will find ideal roles for your uploaded resume.</p>
+             <div className="flex gap-3 mb-4">
+                <input 
+                  type="text" 
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  placeholder="Enter target domain..." 
+                  className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+                <button 
+                  onClick={searchDomainJobs}
+                  disabled={isSearchingJobs}
+                  className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 shrink-0 disabled:opacity-50"
+                >
+                  {isSearchingJobs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  Search
+                </button>
+             </div>
+
+             {/* Scraped Jobs Results */}
+             {domainJobs.length > 0 && (
+                <div className="space-y-3 mt-4 animate-fade-in-up">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Top AI Matches</p>
+                  {domainJobs.map((job, idx) => (
+                    <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition-colors group">
+                       <h4 className="font-bold text-indigo-300">{job.role}</h4>
+                       <p className="text-sm text-gray-400 mb-3">{job.company}</p>
+                       <button 
+                         onClick={() => handleSelectJob(job)}
+                         className="flex items-center gap-1 text-xs bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded-lg font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                       >
+                         <MousePointerClick className="w-3 h-3"/> Target This Role
+                       </button>
+                    </div>
+                  ))}
+                </div>
+             )}
+          </div>
+
           <div className="glass-panel p-6 rounded-2xl border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.05)]">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Target className="w-5 h-5 text-blue-400" /> Target Job Description
@@ -133,7 +240,7 @@ export default function ResumeManagementPage() {
                 )}
 
                 {optimizedResult && (
-                  <div className="space-y-6 text-sm">
+                  <div id="printable-resume" className="space-y-6 text-sm">
                     <div>
                       <h3 className="font-bold text-lg mb-2 border-b border-white/10 pb-2">Professional Summary</h3>
                       <p className="text-gray-300 leading-relaxed">{optimizedResult.summary}</p>
@@ -142,7 +249,7 @@ export default function ResumeManagementPage() {
                     <div>
                       <h3 className="font-bold text-lg mb-3 border-b border-white/10 pb-2">Optimized Experience</h3>
                       {optimizedResult.experience.map((exp: any, i: number) => (
-                        <div key={i} className="mb-4">
+                        <div key={i} className="mb-4 break-inside-avoid">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-bold text-blue-400">{exp.title}</h4>
                             <span className="text-xs text-gray-500">{exp.startDate} - {exp.endDate}</span>
@@ -161,8 +268,11 @@ export default function ResumeManagementPage() {
               </div>
 
               {optimizedResult && (
-                <button className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-semibold transition-colors">
-                  Download as PDF
+                <button 
+                  onClick={() => window.print()}
+                  className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-5 h-5" /> Download as ATS PDF
                 </button>
               )}
            </div>

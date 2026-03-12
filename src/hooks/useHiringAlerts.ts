@@ -8,12 +8,25 @@ export type JobAlert = {
   hiring_status: string;
 };
 
-export function useHiringAlerts(userId: string) {
+export function useHiringAlerts() {
   const [alerts, setAlerts] = useState<JobAlert[]>([]);
   const supabase = createClient();
 
   useEffect(() => {
-    if (!userId) return;
+    // Fetch initial latest jobs
+    const fetchJobs = async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, company, role, hiring_status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (data && !error) {
+        setAlerts(data as JobAlert[]);
+      }
+    };
+
+    fetchJobs();
 
     // Listen to inserts on the 'jobs' table
     const channel = supabase
@@ -28,11 +41,10 @@ export function useHiringAlerts(userId: string) {
         (payload) => {
           const newJob = payload.new as JobAlert;
           
-          // Optionally filter here to only show alerts user is subscribed to via job_alerts table
           setAlerts((prev) => [newJob, ...prev]);
           
           // Trigger browser notification if permitted
-          if (Notification.permission === "granted") {
+          if (Notification && Notification.permission === "granted") {
              new Notification(`New Hiring Alert: ${newJob.company}`, {
                  body: `Role: ${newJob.role} is now ${newJob.hiring_status}`,
              });
@@ -44,7 +56,7 @@ export function useHiringAlerts(userId: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, supabase]);
+  }, [supabase]);
 
   return alerts;
 }
