@@ -15,6 +15,7 @@ export async function parseResumeWithGemini(resumeText: string) {
     - skills (array of strings)
     - experience (array of objects with: title, company, startDate, endDate, description (array of bullet points))
     - education (array of objects with: degree, institution, graduationYear)
+    - projects (array of objects with: title, techStack (array of strings), description (array of bullet points))
     
     Respond ONLY with valid JSON. No markdown formatting, no explanations.
     
@@ -46,11 +47,12 @@ export async function optimizeResumeForJob(parsedResume: any, jobDescription: st
       You are an elite Tech Career Coach. 
       I am providing a parsed resume (in JSON) and a target job description.
       
-      Your task is to rewrite the resume's summary and experience bullet points to perfectly align with the target job descriptions' keywords and tone, while remaining strictly truthful to the original experience.
+      Your task is to comprehensively rewrite the resume's summary, experience bullet points, skills, and projects to perfectly align with the target job descriptions' keywords and tone, while remaining strictly truthful to the original experience.
       
-      1. Maximize the ATS match score by naturally injecting keywords from the job description.
+      1. Maximize the ATS match score by naturally injecting keywords from the job description into the skills array, experience bullets, and project descriptions.
       2. Quantify achievements where possible.
-      3. Rewrite the professional summary.
+      3. Rewrite the professional summary to act as a targeted pitch for this exact role.
+      4. Adjust the existing 'skills' array to prioritize and include technologies mentioned in the job description that the user has experience with.
       
       Respond ONLY with the completely optimized resume in the exact same JSON structure as provided.
       

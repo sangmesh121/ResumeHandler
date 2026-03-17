@@ -92,6 +92,10 @@ export default function ResumeManagementPage() {
          summary: "Software Engineer with 5 years of experience building web applications.",
          experience: [
            { title: "Frontend Engineer", company: "Tech Corp", startDate: "2020", endDate: "Present", description: ["Built React apps", "Improved loading speed by 20%"] }
+         ],
+         skills: ["React", "TypeScript", "Node.js", "Tailwind CSS"],
+         projects: [
+           { title: "E-Commerce Dashboard", techStack: ["React", "Express"], description: ["Architected a full-stack dashboard", "Integrated Stripe payments"] }
          ]
       };
 
@@ -206,12 +210,12 @@ export default function ResumeManagementPage() {
             ></textarea>
             
             <button 
-              onClick={runOptimizer}
+               onClick={runOptimizer}
               disabled={isOptimizing}
               className="mt-4 w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 rounded-xl font-bold shadow-[0_0_30px_rgba(139,92,246,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isOptimizing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
-              {isOptimizing ? "Gemini is Optimizing..." : "Magic Auto-Optimize"}
+              {isOptimizing ? "Generating Update..." : "Generate Updated Resume"}
             </button>
           </div>
         </div>
@@ -263,6 +267,38 @@ export default function ResumeManagementPage() {
                         </div>
                       ))}
                     </div>
+
+                    {optimizedResult.skills && optimizedResult.skills.length > 0 && (
+                      <div>
+                        <h3 className="font-bold text-lg mb-3 border-b border-white/10 pb-2">Skills</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {optimizedResult.skills.map((skill: string, i: number) => (
+                            <span key={i} className="px-2 py-1 bg-white/5 border border-white/10 rounded-md text-xs text-blue-300">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {optimizedResult.projects && optimizedResult.projects.length > 0 && (
+                      <div>
+                        <h3 className="font-bold text-lg mb-3 border-b border-white/10 pb-2">Projects</h3>
+                        {optimizedResult.projects.map((proj: any, i: number) => (
+                          <div key={i} className="mb-4 break-inside-avoid">
+                            <h4 className="font-bold text-blue-400">{proj.title}</h4>
+                            {proj.techStack && proj.techStack.length > 0 && (
+                              <p className="text-xs text-gray-400 font-medium mb-1">Tech Stack: {proj.techStack.join(', ')}</p>
+                            )}
+                            <ul className="list-disc pl-5 space-y-1.5 text-gray-300">
+                              {proj.description?.map((bullet: string, j: number) => (
+                                <li key={j}>{bullet}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -272,7 +308,7 @@ export default function ResumeManagementPage() {
                   onClick={() => window.print()}
                   className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
                 >
-                  <FileText className="w-5 h-5" /> Download as ATS PDF
+                  <FileText className="w-5 h-5" /> Download Updated Resume (PDF)
                 </button>
               )}
            </div>
