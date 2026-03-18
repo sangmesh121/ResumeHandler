@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UploadCloud, FileText, CheckCircle2, Clock, Zap, Loader2, Target, Search, MousePointerClick } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, Clock, Zap, Loader2, Target, Search, MousePointerClick, Github } from "lucide-react";
 
 export default function ResumeManagementPage() {
   const [isUploading, setIsUploading] = useState(false);
@@ -10,10 +10,12 @@ export default function ResumeManagementPage() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedResult, setOptimizedResult] = useState<any>(null);
 
-  // Domain search states
-  const [domain, setDomain] = useState("");
-  const [domainJobs, setDomainJobs] = useState<any[]>([]);
-  const [isSearchingJobs, setIsSearchingJobs] = useState(false);
+  // Job URL Scraper states
+  const [jobUrl, setJobUrl] = useState("");
+  const [isScraping, setIsScraping] = useState(false);
+
+  // GitHub sync state
+  const [githubUsername, setGithubUsername] = useState("");
 
   // Parse the uploaded PDF
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,40 +45,28 @@ export default function ResumeManagementPage() {
     }
   };
 
-  const searchDomainJobs = async () => {
-    if (!domain) return alert("Please enter a target domain/industry.");
-    setIsSearchingJobs(true);
-    setDomainJobs([]);
+  const scrapeJobUrl = async () => {
+    if (!jobUrl) return alert("Please enter a valid Job URL.");
+    setIsScraping(true);
 
     try {
-      const targetResume = parsedResume || {
-         name: "John Doe",
-         summary: "Experienced Professional",
-         experience: []
-      };
-
-      const res = await fetch('/api/jobs/search', {
+      const res = await fetch('/api/jobs/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, parsedResume: targetResume })
+        body: JSON.stringify({ url: jobUrl })
       });
       const json = await res.json();
-      if (json.success) {
-        setDomainJobs(json.data);
+      if (json.success && json.data) {
+        const text = `Role: ${json.data.role}\n\nDescription:\n${json.data.description}`;
+        setJobDescription(text);
       } else {
-        alert("Search failed: " + json.error);
+        alert("Scraping failed: " + json.error);
       }
     } catch (e) {
-      alert("Network error processing domain search.");
+      alert("Network error processing job URL.");
     } finally {
-      setIsSearchingJobs(false);
+      setIsScraping(false);
     }
-  };
-
-  const handleSelectJob = (job: any) => {
-     const text = `Company: ${job.company}\nRole: ${job.role}\n\nDescription:\n${job.description}`;
-     setJobDescription(text);
-     // Scroll to the textarea to prompt them to hit optimize
   };
 
   const runOptimizer = async () => {
@@ -104,7 +94,8 @@ export default function ResumeManagementPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           parsedResume: targetResume,
-          jobDescription: jobDescription
+          jobDescription: jobDescription,
+          githubUsername: githubUsername
         })
       });
 
@@ -154,48 +145,44 @@ export default function ResumeManagementPage() {
         {/* Input Scope */}
         <div className="space-y-6">
           
-          {/* AI Domain Matcher */}
+          {/* AI Job URL Scraper */}
           <div className="glass-panel p-6 rounded-2xl border-indigo-500/20 shadow-[0_0_30px_rgba(79,70,229,0.05)]">
              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Search className="w-5 h-5 text-indigo-400" /> AI Domain Matcher
+              <Search className="w-5 h-5 text-indigo-400" /> AI Job URL Scraper
              </h2>
-             <p className="text-sm text-gray-400 mb-4">Tell us your target industry (e.g. "Fintech Engineering", "AI Startups"). Gemini will find ideal roles for your uploaded resume.</p>
+             <p className="text-sm text-gray-400 mb-4">Paste a direct link to a job posting (e.g. Workday, Lever, LinkedIn). AI will extract the role and description.</p>
              <div className="flex gap-3 mb-4">
                 <input 
-                  type="text" 
-                  value={domain}
-                  onChange={(e) => setDomain(e.target.value)}
-                  placeholder="Enter target domain..." 
+                  type="url" 
+                  value={jobUrl}
+                  onChange={(e) => setJobUrl(e.target.value)}
+                  placeholder="https://jobs.lever.co/..." 
                   className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
                 />
                 <button 
-                  onClick={searchDomainJobs}
-                  disabled={isSearchingJobs}
+                  onClick={scrapeJobUrl}
+                  disabled={isScraping}
                   className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 shrink-0 disabled:opacity-50"
                 >
-                  {isSearchingJobs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  Search
+                  {isScraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  Scrape
                 </button>
              </div>
+          </div>
 
-             {/* Scraped Jobs Results */}
-             {domainJobs.length > 0 && (
-                <div className="space-y-3 mt-4 animate-fade-in-up">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Top AI Matches</p>
-                  {domainJobs.map((job, idx) => (
-                    <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition-colors group">
-                       <h4 className="font-bold text-indigo-300">{job.role}</h4>
-                       <p className="text-sm text-gray-400 mb-3">{job.company}</p>
-                       <button 
-                         onClick={() => handleSelectJob(job)}
-                         className="flex items-center gap-1 text-xs bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded-lg font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-                       >
-                         <MousePointerClick className="w-3 h-3"/> Target This Role
-                       </button>
-                    </div>
-                  ))}
-                </div>
-             )}
+          {/* GitHub Sync */}
+          <div className="glass-panel p-6 rounded-2xl border-green-500/20 shadow-[0_0_30px_rgba(34,197,94,0.05)]">
+             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Github className="w-5 h-5 text-green-400" /> GitHub Projects Sync
+             </h2>
+             <p className="text-sm text-gray-400 mb-4">Enter your GitHub Username to dynamically import and tailor your real projects if they match the role.</p>
+             <input 
+               type="text" 
+               value={githubUsername}
+               onChange={(e) => setGithubUsername(e.target.value)}
+               placeholder="GitHub Username (Optional)" 
+               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-green-500 transition-colors"
+             />
           </div>
 
           <div className="glass-panel p-6 rounded-2xl border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.05)]">
@@ -244,58 +231,100 @@ export default function ResumeManagementPage() {
                 )}
 
                 {optimizedResult && (
-                  <div id="printable-resume" className="space-y-6 text-sm">
-                    <div>
-                      <h3 className="font-bold text-lg mb-2 border-b border-white/10 pb-2">Professional Summary</h3>
-                      <p className="text-gray-300 leading-relaxed">{optimizedResult.summary}</p>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-bold text-lg mb-3 border-b border-white/10 pb-2">Optimized Experience</h3>
-                      {optimizedResult.experience.map((exp: any, i: number) => (
-                        <div key={i} className="mb-4 break-inside-avoid">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-bold text-blue-400">{exp.title}</h4>
-                            <span className="text-xs text-gray-500">{exp.startDate} - {exp.endDate}</span>
-                          </div>
-                          <p className="text-gray-400 mb-2 font-medium">{exp.company}</p>
-                          <ul className="list-disc pl-5 space-y-1.5 text-gray-300">
-                            {exp.description.map((bullet: string, j: number) => (
-                              <li key={j}>{bullet}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
+                  <div id="printable-resume" className="bg-white text-black p-8 font-serif shadow-xl rounded-sm mx-auto max-w-[850px]">
+                    {/* Header */}
+                    <div className="text-center mb-6">
+                      <h1 className="text-4xl font-serif font-bold mb-2 tracking-wide text-black">{optimizedResult.name || 'Your Name'}</h1>
+                      <div className="flex items-center justify-center gap-3 text-[11px] font-serif text-black">
+                        {githubUsername && (
+                          <span className="flex items-center gap-1 border border-cyan-400 px-1"><Github className="w-3 h-3 text-cyan-600"/> github.com/{githubUsername}</span>
+                        )}
+                        <span className="text-gray-400">|</span>
+                        <span className="flex items-center gap-1 border border-cyan-400 px-1"><span className="font-bold bg-black text-white px-0.5 rounded-sm">in</span> linkedin.com/in/{optimizedResult.name?.replace(/\s+/g, '').toLowerCase() || 'username'}</span>
+                        <span className="text-gray-400">|</span>
+                        <span className="flex items-center gap-1 border border-cyan-400 px-1"><span className="bg-black text-white px-1 font-bold rounded-sm">@</span> {optimizedResult.email || 'email@example.com'}</span>
+                      </div>
                     </div>
 
-                    {optimizedResult.skills && optimizedResult.skills.length > 0 && (
-                      <div>
-                        <h3 className="font-bold text-lg mb-3 border-b border-white/10 pb-2">Skills</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {optimizedResult.skills.map((skill: string, i: number) => (
-                            <span key={i} className="px-2 py-1 bg-white/5 border border-white/10 rounded-md text-xs text-blue-300">
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
+                    {/* Summary */}
+                    {optimizedResult.summary && (
+                      <div className="mb-4 printable-section">
+                        <h3 className="font-serif font-semibold text-[13px] uppercase tracking-widest border-b border-black pb-1 mb-2 text-black text-left">Summary</h3>
+                        <p className="font-serif text-[11px] leading-relaxed text-black text-justify">{optimizedResult.summary}</p>
                       </div>
                     )}
 
+                    {/* Skills */}
+                    {optimizedResult.skills && (
+                      <div className="mb-4 printable-section">
+                        <h3 className="font-serif font-semibold text-[13px] uppercase tracking-widest border-b border-black pb-1 mb-2 text-black text-left">Skills</h3>
+                        <p className="font-serif text-[11px] text-black leading-relaxed">
+                          {Array.isArray(optimizedResult.skills) 
+                            ? optimizedResult.skills.map((s: any) => typeof s === 'string' ? s : Object.values(s).join(', ')).join(', ')
+                            : typeof optimizedResult.skills === 'string' ? optimizedResult.skills : JSON.stringify(optimizedResult.skills)}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Experience */}
+                    {optimizedResult.experience && optimizedResult.experience.length > 0 && (
+                      <div className="mb-4 printable-section">
+                        <h3 className="font-serif font-semibold text-[13px] uppercase tracking-widest border-b border-black pb-1 mb-3 text-black text-left">Experience</h3>
+                        {optimizedResult.experience.map((exp: any, i: number) => (
+                           <div key={i} className="mb-3">
+                             <div className="flex justify-between items-baseline font-serif mb-1">
+                               <div>
+                                 <span className="font-bold text-[12px] text-black">{exp.company}</span>
+                                 <span className="text-[12px] text-black ml-4">{exp.title}</span>
+                               </div>
+                               <span className="text-[11px] text-black">{exp.startDate} - {exp.endDate}</span>
+                             </div>
+                             <ul className="list-disc pl-5 font-serif text-[11px] text-black space-y-1">
+                               {exp.description?.map((b: string, j: number) => <li key={j} className="text-justify leading-relaxed">{b}</li>)}
+                             </ul>
+                           </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Education */}
+                    {optimizedResult.education && optimizedResult.education.length > 0 && (
+                      <div className="mb-4 printable-section">
+                        <h3 className="font-serif font-semibold text-[13px] uppercase tracking-widest border-b border-black pb-1 mb-3 text-black text-left">Education</h3>
+                        {optimizedResult.education.map((edu: any, i: number) => (
+                           <div key={i} className="flex font-serif text-[11px] text-black mb-1.5 items-baseline">
+                             <span className="w-24 shrink-0">{edu.graduationYear || '2024'}</span>
+                             <span className="flex-1">{edu.degree}, <span className="font-bold">{edu.institution}</span></span>
+                             {edu.score && <span className="shrink-0 ml-4">Score: {edu.score}</span>}
+                           </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Certifications */}
+                    {optimizedResult.certifications && optimizedResult.certifications.length > 0 && (
+                      <div className="mb-4 printable-section">
+                        <h3 className="font-serif font-semibold text-[13px] uppercase tracking-widest border-b border-black pb-1 mb-3 text-black text-left">Certifications</h3>
+                        <ul className="list-disc pl-5 font-serif text-[11px] text-black space-y-1.5">
+                          {optimizedResult.certifications.map((cert: string, i: number) => <li key={i}>{cert}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Projects */}
                     {optimizedResult.projects && optimizedResult.projects.length > 0 && (
-                      <div>
-                        <h3 className="font-bold text-lg mb-3 border-b border-white/10 pb-2">Projects</h3>
+                      <div className="mb-2 printable-section">
+                        <h3 className="font-serif font-semibold text-[13px] uppercase tracking-widest border-b border-black pb-1 mb-3 text-black text-left">Projects</h3>
                         {optimizedResult.projects.map((proj: any, i: number) => (
-                          <div key={i} className="mb-4 break-inside-avoid">
-                            <h4 className="font-bold text-blue-400">{proj.title}</h4>
-                            {proj.techStack && proj.techStack.length > 0 && (
-                              <p className="text-xs text-gray-400 font-medium mb-1">Tech Stack: {proj.techStack.join(', ')}</p>
-                            )}
-                            <ul className="list-disc pl-5 space-y-1.5 text-gray-300">
-                              {proj.description?.map((bullet: string, j: number) => (
-                                <li key={j}>{bullet}</li>
-                              ))}
-                            </ul>
-                          </div>
+                           <div key={i} className="mb-3">
+                             <div className="flex justify-between items-baseline font-serif mb-1">
+                               <span className="font-bold text-[12px] text-black">{proj.title}</span>
+                               <span className="text-[11px] text-black">{proj.date || 'Recent'}</span>
+                             </div>
+                             <ul className="list-disc pl-5 font-serif text-[11px] text-black space-y-1">
+                               {proj.description?.map((b: string, j: number) => <li key={j} className="text-justify leading-relaxed">{b}</li>)}
+                             </ul>
+                           </div>
                         ))}
                       </div>
                     )}
