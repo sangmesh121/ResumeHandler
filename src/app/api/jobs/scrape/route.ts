@@ -1,60 +1,59 @@
 import { NextResponse } from 'next/server';
-
-// In a real $10M SaaS, this would call Python microservices running distributed
-// Playwright/Scrapy crawlers. For the MVP, we simulate scraping jobs.
+import { GoogleGenAI } from '@google/genai';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { company, role } = body;
+    const { url } = await req.json();
+    if (!url) return NextResponse.json({ error: "URL is required" }, { status: 400 });
 
-    // Simulate crawler delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
+    // Attempt to fetch the URL HTML to give to Gemini
+    let pageText = "";
+    try {
+      // Basic fetch. If it's blocked by cors/bot protection, Gemini's prompt will attempt a fallback
+      const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const html = await pageRes.text();
+      // Slice first 40k chars to avoid token maxs if the page is heavy
+      pageText = html.substring(0, 40000); 
+    } catch(e) {
+      console.warn("Failed to fetch HTML natively, relying on AI fallback.");
+    }
 
-    // Simulated Scraped Job Data
-    const mockJobs = [
+    const prompt = `
+      You are an expert Data Extraction AI. Extract the job posting details from the following raw web page HTML content.
+      If the content is empty or blocked, do your best to infer the role from the URL string itself.
+      
+      Source URL: ${url}
+      
+      Return ONLY a JSON object with this exact structure:
       {
-        id: "job_123",
-        company: company || "OpenAI",
-        role: role || "Machine Learning Engineer",
-        department: "AI Research",
-        location: "San Francisco, CA",
-        description: `We are looking for an ML Engineer to scale our large language models.
-        
-        Requirements:
-        - 5+ years of experience with Python, PyTorch, and TensorFlow
-        - Deep understanding of Transformer architectures
-        - Experience with distributed training (Ray, Kubernetes, MPI)
-        - Strong background in MLOps and model deployment
-        `,
-        hiring_status: "open",
-        apply_link: "https://openai.com/careers/ml-engineer"
-      },
-      {
-        id: "job_124",
-        company: company || "OpenAI",
-        role: "Data Scientist",
-        department: "Analytics",
-        location: "Remote",
-        description: `Looking for a Data Scientist to analyze user behavior.
-        
-        Requirements:
-        - SQL, Python (Pandas, Numpy)
-        - A/B testing
-        - Experience with Tableau or Looker
-        `,
-        hiring_status: "open",
-        apply_link: "https://openai.com/careers/data-scientist"
+        "role": "The exact job title",
+        "description": "The full responsibilities and requirements text extracted from the page. Format nicely with newlines."
       }
-    ];
+      
+      Web Page Content Context:
+      ${pageText}
+    `;
 
-    return NextResponse.json({ success: true, count: mockJobs.length, data: mockJobs });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const json = JSON.parse(response.text || '{}');
+
+    return NextResponse.json({ success: true, data: json });
     
   } catch (error: any) {
-    console.error("Scraper Simulation Error:", error);
+    console.error("Job Scraper API Error:", error);
     return NextResponse.json(
       { error: error.message || 'Internal Server Error' }, 
       { status: 500 }
     );
   }
 }
+

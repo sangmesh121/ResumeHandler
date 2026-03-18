@@ -17,14 +17,7 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     // 1. Extract raw text from PDF
-    // Handle Next.js Webpack ESM/CJS interop issues dynamically
-    const parsePDF = typeof pdfParse === 'function' ? pdfParse : (pdfParse as any).default || pdfParse;
-    
-    if (typeof parsePDF !== 'function') {
-       throw new Error(`pdfParse failed to load callable function. Found type: ${typeof parsePDF}`);
-    }
-
-    const pdfData = await parsePDF(buffer);
+    const pdfData = await pdfParse(buffer);
     const rawText = pdfData.text;
 
     if (!rawText || rawText.trim().length === 0) {
