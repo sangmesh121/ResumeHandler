@@ -109,7 +109,8 @@ export default function ResumeManagementPage() {
              id: Date.now().toString(),
              title: `Target: ${jobDescription.substring(0, 20).replace(/\n/g, ' ')}...`,
              matchScore: Math.floor(Math.random() * (98 - 85 + 1)) + 85, // Mock ATS score
-             date: new Date().toISOString()
+             date: new Date().toISOString(),
+             data: json.data
           };
           const existing = JSON.parse(localStorage.getItem('resume_variants') || '[]');
           localStorage.setItem('resume_variants', JSON.stringify([newVariant, ...existing]));
